@@ -1,6 +1,7 @@
 let form = document.getElementById('lobby__form');
 
-let displayName = localStorage.getItem('display_name');
+// change this to localStorage in the production mode
+let displayName = sessionStorage.getItem('display_name');
 if (displayName) {
     form.name.value = displayName;
 }
@@ -9,8 +10,8 @@ form.addEventListener('submit', (e) => {
     e.preventDefault();
 
     const enteredName = e.target.name.value;
-    // update username in the localStorage
-    localStorage.setItem('display_name', enteredName);
+    // update username in the sessionStorage
+    sessionStorage.setItem('display_name', enteredName);
 
     let inviteCode = e.target.room.value;
     if (!inviteCode) {
