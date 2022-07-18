@@ -179,6 +179,8 @@
     display: none;
 }
 
+/* Expanded rectangular video frame inside displayFrame */
+/* Override some styles */
 #stream__box .video__container {
     border: 2px solid #000;
     border-radius: 0;
@@ -202,6 +204,7 @@
     margin-bottom: 225px;
 }
 
+/* Normal circular video frame container */
 .video__container {
     display: flex;
     justify-content: center;

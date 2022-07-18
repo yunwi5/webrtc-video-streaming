@@ -62,11 +62,10 @@ const joinRoomInit = async () => {
 
     client.on('user-published', handleUserPublished);
     client.on('user-left', handleUserLeft);
-
-    // joinStream();
 };
 
 // locally
+// Joins stream optionally when the user clicks the 'Join Stream' button
 const joinStream = async () => {
     // hide the join button when the user actually joins the stream
     joinBtn.style.display = 'none';
@@ -88,7 +87,7 @@ const joinStream = async () => {
                       <div class="video-player" id=user-${uid}></div>
                   </div>`;
 
-    document.getElementById('streams__container').insertAdjacentHTML('beforeend', player);
+    streamsContainer.insertAdjacentHTML('beforeend', player);
     document
         .getElementById(`user-container-${uid}`)
         .addEventListener('click', expandVideoFrame);
@@ -99,27 +98,42 @@ const joinStream = async () => {
     await client.publish([localTracks[0], localTracks[1]]);
 };
 
-const switchToCamera = async () => {
-    // unique video id
-    let player = `<div class="video__container" id="user-container-${uid}">
-                      <div class="video-player" id=user-${uid}></div>
-                  </div>`;
+// locally
+// called when the local user leaves the chat room
+const leaveStream = async (e) => {
+    e.preventDefault();
+    joinBtn.style.display = 'block';
+    document.getElementById('stream__actions').style.display = 'none';
 
-    // main frame (element defined in room.js)
-    displayFrame.insertAdjacentHTML('beforeend', player);
+    // loop through local tracks
+    for (let i = 0; i < localTracks.length; i++) {
+        localTracks[i].stop();
+        localTracks[i].close();
+    }
 
-    await localTracks[0].setMuted(true);
-    await localTracks[1].setMuted(true);
+    // unpublish audio at index 0 and video at index 1
+    await client.unpublish([localTracks[0], localTracks[1]]);
 
-    document.getElementById('mic-btn').classList.remove('active');
-    document.getElementById('screen-btn').classList.remove('active');
+    if (localScreenTracks) {
+        await client.unpublish([localScreenTracks]);
+    }
 
-    localTracks[1].play(`user-${uid}`);
-    // audio track is already published (but only muted), so do not pubilsh again
-    // only publish video track at index 0
-    await client.publish([localTracks[1]]);
+    document.getElementById(`user-container-${uid}`).remove();
+
+    if (userIdInDisplayFrame === '') {
+        displayFrame.style.display = null;
+
+        for (let i = 0; i < videoFrames.length; i++) {
+            videoFrames[i].style.height = '300px';
+            videoFrames[i].style.width = '300px';
+        }
+    }
+
+    channel.sendMessage({ text: JSON.stringify({ type: 'user_left', uid: uid }) });
 };
 
+// externally
+// Called when the external user enters the chat room
 let handleUserPublished = async (user, mediaType) => {
     // add new remote user to the list of remote users
     remoteUsers[user.uid] = user;
@@ -134,14 +148,15 @@ let handleUserPublished = async (user, mediaType) => {
             </div>`;
 
         // add a player to the DOM
-        document.getElementById('streams__container').insertAdjacentHTML('beforeend', player);
+        streamsContainer.insertAdjacentHTML('beforeend', player);
         document
-            .getElementById(`user-container-${user.uid}`)
+            .getElementById(`user-container-${uid}`)
             .addEventListener('click', expandVideoFrame);
     }
 
     if (displayFrame.style.display) {
         // query again (can set width&height after the element is added to the DOM!)
+        // resize the videoFrame if there is a user in the main displayFrame.
         let videoFrame = document.getElementById(`user-container-${user.uid}`);
         videoFrame.style.height = '100px';
         videoFrame.style.width = '100px';
@@ -156,6 +171,8 @@ let handleUserPublished = async (user, mediaType) => {
     }
 };
 
+// externally
+// Called when the external user leaves the chat room
 const handleUserLeft = async (user) => {
     delete remoteUsers[user.uid];
     // remove left user element from the DOM
@@ -254,36 +271,27 @@ const toggleScreen = async (e) => {
     }
 };
 
-const leaveStream = async (e) => {
-    e.preventDefault();
-    joinBtn.style.display = 'block';
-    document.getElementById('stream__actions').style.display = 'none';
+// switch from screen share mode to self camera mode.
+const switchToCamera = async () => {
+    // unique video id
+    let player = `<div class="video__container" id="user-container-${uid}">
+                      <div class="video-player" id=user-${uid}></div>
+                  </div>`;
 
-    // loop through local tracks
-    for (let i = 0; i < localTracks.length; i++) {
-        localTracks[i].stop();
-        localTracks[i].close();
-    }
+    // main frame (element defined in room.js)
+    displayFrame.insertAdjacentHTML('beforeend', player);
 
-    // unpublish audio at index 0 and video at index 1
-    await client.unpublish([localTracks[0], localTracks[1]]);
+    // initially mute camera and mic when turning back to camera mode.
+    await localTracks[0].setMuted(true);
+    await localTracks[1].setMuted(true);
 
-    if (localScreenTracks) {
-        await client.unpublish([localScreenTracks]);
-    }
+    micBtn.classList.remove('active');
+    screenBtn.classList.remove('active');
 
-    document.getElementById(`user-container-${uid}`).remove();
-
-    if (userIdInDisplayFrame === '') {
-        displayFrame.style.display = null;
-
-        for (let i = 0; i < videoFrames.length; i++) {
-            videoFrames[i].style.height = '300px';
-            videoFrames[i].style.width = '300px';
-        }
-    }
-
-    channel.sendMessage({ text: JSON.stringify({ type: 'user_left', uid: uid }) });
+    localTracks[1].play(`user-${uid}`);
+    // audio track is already published (but only muted), so do not pubilsh again
+    // only publish video track at index 0
+    await client.publish([localTracks[1]]);
 };
 
 const micBtn = document.getElementById('mic-btn');
